@@ -4,11 +4,16 @@ import subprocess
 from urllib.parse import quote
 
 import pynvim
+import pyperclip
 
 @pynvim.plugin
 class ShareLinkPlugin(object):
     def __init__(self, nvim):
         self.nvim = nvim
+
+    def copy_to_clipboard(self, text):
+        pyperclip.copy(text)
+        self.nvim.command('echom "Link copied to clipboard"')
 
     @pynvim.command('ShareLink', nargs='*', sync=True)
     def share_link(self, args):
@@ -23,15 +28,19 @@ class ShareLinkPlugin(object):
             ['git', 'config', '--get', 'remote.origin.url'], encoding='utf-8'
         ).strip()
 
+        url = None
+
         if 'github.com' in remote_url:
             base_url = re.sub(r'\.git$', '', remote_url).replace(':', '/').replace('git@', 'https://')
             relative_path = os.path.relpath(file_path, repo_root)
             url = f"{base_url}/blob/master/{quote(relative_path)}#L{line_number}"
-            self.nvim.command(f'echom "Link: {url}"')
         elif 'dev.azure.com' in remote_url:
             base_url = re.sub(r'\.git$', '', remote_url)
             relative_path = os.path.relpath(file_path, repo_root)
             url = f"{base_url}?path={quote(relative_path)}&version=GBmaster&_a=contents&line={line_number}&lineStyle=plain&lineEnd={line_number}&lineStartColumn=1&lineEndColumn=1"
+
+        if url:
+            self.copy_to_clipboard(url)
             self.nvim.command(f'echom "Link: {url}"')
         else:
             self.nvim.command('echom "Error: Not a supported repository"')
